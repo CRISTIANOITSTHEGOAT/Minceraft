@@ -84,6 +84,7 @@ class Player:
         self.held_entity = None
         self._last_held_key: Optional[str] = "__init__"
         self._swing_anim: float = 0.0
+        self._held_base_rot = (12.0, -28.0, 8.0)
 
         self._init_visual_entities()
         self.sync_camera()
@@ -162,27 +163,37 @@ class Player:
             from ursina import color
             if held_key is None:
                 # Bare hand
+                self.held_entity.model = "cube"
+                self.held_entity.double_sided = False
+                self.held_entity.position = (0.52, -0.38, 0.78)
+                self.held_entity.rotation = (12, -28, 8)
                 self.held_entity.scale = (0.14, 0.14, 0.34)
                 self.held_entity.texture = None
                 self.held_entity.color = color.rgb(0.92, 0.74, 0.60)
+                self._held_base_rot = (12.0, -28.0, 8.0)
                 return
 
+            # Items, tools and blocks are shown as their pixel-art icon on a flat sprite
             idef = get_item_def(held_key)
             tex = get_item_icon_texture(held_key)
+            self.held_entity.model = "quad"
+            self.held_entity.double_sided = True
+            self.held_entity.texture = tex
+            self.held_entity.color = color.white
             if idef is not None and idef.category == "block":
-                self.held_entity.scale = (0.26, 0.26, 0.26)
-                self.held_entity.texture = tex
-                self.held_entity.color = color.white
+                self.held_entity.position = (0.50, -0.36, 0.80)
+                self.held_entity.rotation = (8, -18, 0)
+                self.held_entity.scale = (0.36, 0.36, 0.36)
             elif idef is not None and idef.tool_type in ("pickaxe", "axe", "sword"):
-                # Elongated held tool/blade in first person
-                self.held_entity.scale = (0.10, 0.34, 0.34)
-                self.held_entity.texture = tex
-                r, g, b = [c / 255.0 for c in idef.icon_color]
-                self.held_entity.color = color.rgb(r, g, b)
+                self.held_entity.position = (0.50, -0.30, 0.80)
+                self.held_entity.rotation = (0, -28, -6)
+                self.held_entity.scale = (0.52, 0.52, 0.52)
             else:
-                self.held_entity.scale = (0.20, 0.20, 0.10)
-                self.held_entity.texture = tex
-                self.held_entity.color = color.white
+                self.held_entity.position = (0.48, -0.30, 0.80)
+                self.held_entity.rotation = (0, -22, 0)
+                self.held_entity.scale = (0.42, 0.42, 0.42)
+            r = self.held_entity.rotation
+            self._held_base_rot = (float(r[0]), float(r[1]), float(r[2]))
         except Exception:
             pass
 
@@ -560,7 +571,8 @@ class Player:
             if self.held_entity is not None:
                 try:
                     ang = math.sin(self._swing_anim * math.pi) * 38.0
-                    self.held_entity.rotation = (12 + ang, -28 - ang * 0.5, 8)
+                    br = self._held_base_rot
+                    self.held_entity.rotation = (br[0] + ang, br[1] - ang * 0.5, br[2])
                 except Exception:
                     pass
 

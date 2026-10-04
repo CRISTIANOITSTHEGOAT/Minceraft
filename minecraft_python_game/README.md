@@ -110,3 +110,16 @@ minecraft_python/
 │
 └── saves/                   # Persistent world saves (*.json) and settings.json
 ```
+
+---
+
+## Visual Art Pipeline
+
+All art is still generated procedurally (no external assets):
+
+- `game/pixelart.py` – block tiles, isometric block icons, item sprites, mob skins, menu panorama/logo/buttons.
+- `game/mob_models.py` – textured, articulated box models for pig, cow, zombie and skeleton.
+- `game/ui_widgets.py` – title-screen widgets (animated panorama, bobbing logo, splash text, stone buttons).
+
+Generated PNGs are cached in `assets/textures/`. Bump `ART_VERSION` in `game/pixelart.py` after editing any
+generator and they are rebuilt automatically on the next launch.
