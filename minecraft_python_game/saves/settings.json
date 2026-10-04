@@ -1,0 +1,11 @@
+{
+  "mouse_sensitivity": 45.0,
+  "fov": 90,
+  "render_distance": 2,
+  "volume": 0.55,
+  "music": true,
+  "sound_effects": true,
+  "graphics_quality": "Low",
+  "fullscreen": false,
+  "keep_inventory": true
+}

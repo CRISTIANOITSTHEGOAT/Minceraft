@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "world_name": "Explorer World",
+  "seed": "PyCraft2026",
+  "difficulty": "Normal",
+  "world_time": 8.0,
+  "day_count": 1,
+  "timestamp": "2026-10-02 14:43:27",
+  "player": {
+    "position": [
+      8.5,
+      38.05,
+      8.5
+    ],
+    "spawn_pos": [
+      8.5,
+      38.05,
+      8.5
+    ],
+    "yaw": 0.0,
+    "pitch": 10.0,
+    "health": 20.0,
+    "hunger": 20.0,
+    "selected_slot": 0,
+    "inventory": [
+      {
+        "item_id": "wooden_pickaxe",
+        "count": 1,
+        "durability": 60
+      },
+      {
+        "item_id": "wooden_sword",
+        "count": 1,
+        "durability": 60
+      },
+      {
+        "item_id": "torch",
+        "count": 8,
+        "durability": null
+      },
+      {
+        "item_id": "apple",
+        "count": 4,
+        "durability": null
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "modified_blocks": {},
+  "chests": {},
+  "furnace": {
+    "input_slot": null,
+    "fuel_slot": null,
+    "output_slot": null,
+    "burn_time": 0.0,
+    "max_burn_time": 1.0,
+    "smelt_time": 0.0
+  }
+}
