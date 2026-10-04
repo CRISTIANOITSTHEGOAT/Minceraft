@@ -10,6 +10,7 @@ from typing import Callable, Dict, List, Optional
 from game.assets_gen import get_item_icon_texture, play_game_sound
 from game.blocks import get_block_by_id, get_item_def
 from game.furnace import SMELT_RECIPES
+from game.ui_widgets import build_backdrop, build_main_menu, build_panel, menu_button_class, tint_from_accent
 from game.inventory import HOTBAR_SIZE, TOTAL_SLOTS
 
 
@@ -420,6 +421,19 @@ class GameUI:
             self.hud_root.enabled = True
         self.set_mouse_locked(True)
 
+    @staticmethod
+    def _recolor_button(btn, accent) -> None:
+        """Re-tint a stone MenuButton from an accent colour."""
+        try:
+            from ursina import color
+            t = tint_from_accent(accent)
+            c = color.rgba(t[0], t[1], t[2], 1.0)
+            btn.color = c
+            btn.highlight_color = c
+            btn.pressed_color = c
+        except Exception:
+            pass
+
     def show_main_menu(self) -> None:
         self._clear_screen_root()
         self.active_screen = "main_menu"
@@ -428,58 +442,14 @@ class GameUI:
         self.set_mouse_locked(False)
 
         try:
-            from ursina import Button, Entity, Text, color
+            from game.ui_widgets import build_main_menu
 
-            # Dark stylized backdrop
-            Entity(
-                parent=self.screen_root,
-                model="quad",
-                scale=(2.0, 1.2),
-                color=color.rgb(0.07, 0.10, 0.15),
-                z=0.2,
-            )
-            # Decorative card panel
-            Entity(
-                parent=self.screen_root,
-                model="quad",
-                position=(0, 0.02),
-                scale=(0.76, 0.76),
-                color=color.rgba(0.12, 0.16, 0.22, 0.96),
-                z=0.1,
-            )
-
-            Text(
-                parent=self.screen_root,
-                text="PYCRAFT",
-                origin=(0, 0),
-                position=(0, 0.28),
-                scale=2.8,
-                color=color.rgb(0.38, 0.88, 0.48),
-            )
-            Text(
-                parent=self.screen_root,
-                text="VOXEL SURVIVAL SANDBOX",
-                origin=(0, 0),
-                position=(0, 0.20),
-                scale=1.05,
-                color=color.rgb(0.82, 0.86, 0.92),
-            )
-
-            btn_specs = [
-                ("NEW WORLD", 0.08, self.show_new_world_menu, color.rgb(0.20, 0.62, 0.34)),
-                ("LOAD WORLD", -0.02, self.show_load_world_menu, color.rgb(0.22, 0.48, 0.72)),
-                ("SETTINGS", -0.12, lambda: self.show_settings_menu(return_to="main_menu"), color.rgb(0.32, 0.36, 0.44)),
-                ("QUIT GAME", -0.22, self.ctrl.quit_application, color.rgb(0.65, 0.22, 0.22)),
-            ]
-            for label, ypos, action, bcol in btn_specs:
-                b = Button(
-                    parent=self.screen_root,
-                    text=label,
-                    position=(0, ypos),
-                    scale=(0.42, 0.072),
-                    color=bcol,
-                )
-                b.on_click = action
+            build_main_menu(self.screen_root, {
+                "new": self.show_new_world_menu,
+                "load": self.show_load_world_menu,
+                "settings": lambda: self.show_settings_menu(return_to="main_menu"),
+                "quit": self.ctrl.quit_application,
+            })
         except Exception as exc:
             print(f"[UI] Error building main menu: {exc}")
 
@@ -489,10 +459,11 @@ class GameUI:
         self.set_mouse_locked(False)
 
         try:
-            from ursina import Button, Entity, InputField, Text, color
+            from ursina import Entity, InputField, Text, color
+            Button = menu_button_class()
 
-            Entity(parent=self.screen_root, model="quad", scale=(2.0, 1.2), color=color.rgb(0.07, 0.10, 0.15), z=0.2)
-            Entity(parent=self.screen_root, model="quad", position=(0, 0), scale=(0.92, 0.82), color=color.rgba(0.12, 0.16, 0.22, 0.96), z=0.1)
+            build_backdrop(self.screen_root, dim=0.35)
+            build_panel(self.screen_root, (0, 0), (0.92, 0.82))
 
             Text(parent=self.screen_root, text="CREATE NEW WORLD", origin=(0, 0), position=(0, 0.32), scale=1.6, color=color.rgb(0.42, 0.90, 0.52))
 
@@ -537,7 +508,7 @@ class GameUI:
             def select_diff(d_val: str):
                 self.new_world_difficulty = d_val
                 for btn in diff_buttons:
-                    btn.color = color.rgb(0.22, 0.65, 0.36) if btn.text == d_val else color.rgb(0.25, 0.28, 0.35)
+                    self._recolor_button(btn, (0.22, 0.65, 0.36) if btn.text == d_val else (0.25, 0.28, 0.35))
 
             for idx, d_name in enumerate(diffs):
                 bx = -0.14 + idx * 0.15
@@ -586,10 +557,11 @@ class GameUI:
         self.set_mouse_locked(False)
 
         try:
-            from ursina import Button, Entity, Text, color
+            from ursina import Entity, Text, color
+            Button = menu_button_class()
 
-            Entity(parent=self.screen_root, model="quad", scale=(2.0, 1.2), color=color.rgb(0.07, 0.10, 0.15), z=0.2)
-            Entity(parent=self.screen_root, model="quad", position=(0, 0), scale=(1.05, 0.86), color=color.rgba(0.12, 0.16, 0.22, 0.96), z=0.1)
+            build_backdrop(self.screen_root, dim=0.35)
+            build_panel(self.screen_root, (0, 0), (1.05, 0.86))
 
             Text(parent=self.screen_root, text="SAVED WORLDS", origin=(0, 0), position=(0, 0.35), scale=1.6, color=color.rgb(0.45, 0.78, 0.98))
 
@@ -668,10 +640,11 @@ class GameUI:
         s = self.ctrl.settings
 
         try:
-            from ursina import Button, Entity, Text, color
+            from ursina import Entity, Text, color
+            Button = menu_button_class()
 
-            Entity(parent=self.screen_root, model="quad", scale=(2.0, 1.2), color=color.rgba(0.05, 0.08, 0.12, 0.92), z=0.2)
-            Entity(parent=self.screen_root, model="quad", position=(0, 0), scale=(1.02, 0.88), color=color.rgba(0.12, 0.16, 0.22, 0.98), z=0.1)
+            build_backdrop(self.screen_root, dim=0.45)
+            build_panel(self.screen_root, (0, 0), (1.02, 0.88))
 
             Text(parent=self.screen_root, text="GAME SETTINGS", origin=(0, 0), position=(0, 0.36), scale=1.55, color=color.rgb(0.95, 0.82, 0.35))
 
@@ -765,10 +738,11 @@ class GameUI:
         self.set_mouse_locked(False)
 
         try:
-            from ursina import Button, Entity, Text, color
+            from ursina import Entity, Text, color
+            Button = menu_button_class()
 
-            Entity(parent=self.screen_root, model="quad", scale=(2.0, 1.2), color=color.rgba(0.02, 0.03, 0.05, 0.72), z=0.2)
-            Entity(parent=self.screen_root, model="quad", position=(0, 0), scale=(0.62, 0.66), color=color.rgba(0.12, 0.16, 0.22, 0.96), z=0.1)
+            Entity(parent=self.screen_root, model="quad", scale=(2.4, 1.4), color=color.rgba(0.02, 0.03, 0.05, 0.72), z=0.2)
+            build_panel(self.screen_root, (0, 0), (0.62, 0.66))
 
             Text(parent=self.screen_root, text="GAME PAUSED", origin=(0, 0), position=(0, 0.22), scale=1.5, color=color.white)
 

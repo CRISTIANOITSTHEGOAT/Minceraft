@@ -9,8 +9,9 @@ import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-from game.assets_gen import play_game_sound
+from game.assets_gen import get_mob_texture, play_game_sound
 from game.combat import DIFFICULTY_DAMAGE_MULTIPLIER
+from game.mob_models import animate_rig, build_mob_rig
 from game.terrain import CHUNK_HEIGHT, SEA_LEVEL
 
 
@@ -123,6 +124,9 @@ class Mob:
         self.attack_timer: float = 0.0
         self.hurt_flash_timer: float = 0.0
         self.anim_time: float = random.uniform(0.0, 10.0)
+        self.swing_phase: float = 0.0
+        self.move_blend: float = 0.0
+        self.rig = None
 
         # Ursina visual entities
         self.root_entity = None
@@ -141,42 +145,22 @@ class Mob:
         self._sync_visuals()
 
     def _build_visual_model(self) -> None:
+        """Build the textured, articulated box model plus an overhead health bar."""
         try:
             from ursina import Entity, color
-            bc = color.rgb(*self.config.body_color)
-            hc = color.rgb(*self.config.head_color)
-            lc = color.rgb(*self.config.limb_color)
 
             self.root_entity = Entity(position=(self.x, self.y, self.z), rotation_y=self.yaw)
+            self.rig = build_mob_rig(self.mob_type, self.root_entity, get_mob_texture(self.mob_type))
+            self.part_entities = list(self.rig.meshes)
+            bar_y = self.rig.bar_height
 
-            if self.hostile:
-                # Upright humanoid model (Zombie / Skeleton)
-                body = Entity(parent=self.root_entity, model="cube", scale=(0.52, 0.68, 0.28), position=(0, 0.92, 0), color=bc)
-                head = Entity(parent=self.root_entity, model="cube", scale=(0.46, 0.46, 0.46), position=(0, 1.50, 0), color=hc)
-                arm_l = Entity(parent=self.root_entity, model="cube", scale=(0.18, 0.62, 0.18), position=(-0.36, 1.02, 0.22), rotation_x=-75 if self.mob_type == "zombie" else -25, color=hc)
-                arm_r = Entity(parent=self.root_entity, model="cube", scale=(0.18, 0.62, 0.18), position=(0.36, 1.02, 0.22), rotation_x=-75 if self.mob_type == "zombie" else -25, color=hc)
-                leg_l = Entity(parent=self.root_entity, model="cube", scale=(0.22, 0.58, 0.22), position=(-0.14, 0.29, 0), color=lc)
-                leg_r = Entity(parent=self.root_entity, model="cube", scale=(0.22, 0.58, 0.22), position=(0.14, 0.29, 0), color=lc)
-                self.part_entities = [body, head, arm_l, arm_r, leg_l, leg_r]
-                bar_y = 1.92
-            else:
-                # Quadruped animal model (Pig / Cow)
-                body = Entity(parent=self.root_entity, model="cube", scale=(0.68, 0.52, 0.95), position=(0, 0.62, 0), color=bc)
-                head = Entity(parent=self.root_entity, model="cube", scale=(0.46, 0.44, 0.46), position=(0, 0.78, 0.58), color=hc)
-                leg_fl = Entity(parent=self.root_entity, model="cube", scale=(0.18, 0.38, 0.18), position=(-0.20, 0.19, 0.32), color=lc)
-                leg_fr = Entity(parent=self.root_entity, model="cube", scale=(0.18, 0.38, 0.18), position=(0.20, 0.19, 0.32), color=lc)
-                leg_bl = Entity(parent=self.root_entity, model="cube", scale=(0.18, 0.38, 0.18), position=(-0.20, 0.19, -0.32), color=lc)
-                leg_br = Entity(parent=self.root_entity, model="cube", scale=(0.18, 0.38, 0.18), position=(0.20, 0.19, -0.32), color=lc)
-                self.part_entities = [body, head, leg_fl, leg_fr, leg_bl, leg_br]
-                bar_y = 1.28
-
-            # Floating overhead health indicator
+            # Floating overhead health indicator (billboard so it always faces the camera)
             self.hp_bar_bg = Entity(
                 parent=self.root_entity,
                 model="cube",
                 scale=(0.72, 0.07, 0.04),
                 position=(0, bar_y, 0),
-                color=color.rgb(0.18, 0.18, 0.20),
+                color=color.rgb(0.10, 0.10, 0.12),
             )
             self.hp_bar_fg = Entity(
                 parent=self.root_entity,
@@ -185,8 +169,8 @@ class Mob:
                 position=(0, bar_y, 0),
                 color=color.rgb(0.92, 0.22, 0.22) if self.hostile else color.rgb(0.25, 0.85, 0.35),
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[Mobs] Could not build model for {self.mob_type}: {exc}")
 
     def _sync_visuals(self) -> None:
         if self.root_entity is not None:
@@ -196,6 +180,12 @@ class Mob:
                 if self.hp_bar_fg is not None:
                     frac = max(0.0, min(1.0, self.health / max(1.0, self.max_health)))
                     self.hp_bar_fg.scale_x = 0.70 * frac
+                from ursina import camera
+                cam_yaw = camera.world_rotation_y
+                if self.hp_bar_bg is not None:
+                    self.hp_bar_bg.world_rotation_y = cam_yaw
+                if self.hp_bar_fg is not None:
+                    self.hp_bar_fg.world_rotation_y = cam_yaw
             except Exception:
                 pass
 
@@ -234,23 +224,11 @@ class Mob:
         return False
 
     def _set_flash_color(self, flashing: bool) -> None:
-        if not self.part_entities:
+        """Tint the skin red while hurt, then restore the original skin colours."""
+        if self.rig is None:
             return
         try:
-            from ursina import color
-            if flashing:
-                rc = color.rgb(1.0, 0.25, 0.25)
-                for p in self.part_entities:
-                    p.color = rc
-            else:
-                bc = color.rgb(*self.config.body_color)
-                hc = color.rgb(*self.config.head_color)
-                lc = color.rgb(*self.config.limb_color)
-                if len(self.part_entities) >= 6:
-                    self.part_entities[0].color = bc
-                    self.part_entities[1].color = hc
-                    for p in self.part_entities[2:]:
-                        p.color = lc
+            self.rig.tint((1.0, 0.35, 0.35, 1.0) if flashing else (1.0, 1.0, 1.0, 1.0))
         except Exception:
             pass
 
@@ -276,6 +254,7 @@ class Mob:
                 destroy(self.root_entity)
                 self.root_entity = None
             self.part_entities.clear()
+            self.rig = None
         except Exception:
             self.root_entity = None
 
@@ -377,14 +356,16 @@ class Mob:
         elif on_ground and not self.world.is_solid(math.floor(self.x), foot_y + 1, math.floor(nz)) and not self.world.is_solid(math.floor(self.x), foot_y + 2, math.floor(nz)):
             self.vy = 6.8
 
-        # Simple limb swing animation while moving
+        # Limb swing / head animation
         move_mag = math.sqrt(self.vx * self.vx + self.vz * self.vz)
-        if move_mag > 0.2 and len(self.part_entities) >= 6:
-            self.anim_time += dt * move_mag * 3.5
-            swing = math.sin(self.anim_time) * 25.0
+        self.anim_time += dt * (1.0 + move_mag * 3.2)
+        self.swing_phase += dt * move_mag * 3.6
+        moving = min(1.0, move_mag / 1.8)
+        self.move_blend += (moving - self.move_blend) * min(1.0, dt * 8.0)
+        if self.rig is not None:
             try:
-                self.part_entities[-2].rotation_x = swing
-                self.part_entities[-1].rotation_x = -swing
+                aggressive = self.hostile and full_dist <= self.config.detect_range
+                animate_rig(self.rig, self.swing_phase, self.move_blend, self.anim_time, aggressive)
             except Exception:
                 pass
 
